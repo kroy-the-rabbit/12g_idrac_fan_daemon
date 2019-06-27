@@ -64,5 +64,5 @@ In my output, the important keys are `Temp` (these are CPU temps on my r420), `F
 
 Add the systemd unit to `/etc/systemd/system`, reload units `sudo systemctl daemon-reload`, `sudo systemctl enable`, `sudo systemctl start`.  If running IPMItool over the network, you can configure the unit to run as a user other than root.  
 
-I tried to make it somewhat resilient to bad configuration options, but ultimately I wrote this in about an hour.  Caveat Emptor. 
+I tried to make it somewhat resilient to bad configuration options, but ultimately I wrote this in about an hour.  It will be easy to break.  Caveat Emptor. 
 

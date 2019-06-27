@@ -10,7 +10,7 @@ I have no idea if this script will work properly on other generations of servers
 
 ### Prequisites
 
-* PHP7+, specifically the CLI binary.  Yes, everybody hates PHP, but I could throw something together with it in a few hours
+* PHP7+, specifically the CLI binary. 
 * ipmitool
 
 On Debian/Ubuntu:

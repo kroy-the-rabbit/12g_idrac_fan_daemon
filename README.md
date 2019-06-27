@@ -4,7 +4,7 @@
 
 This is a daemon to set the fans in a 12G server to a manual speed when the CPU and ambient temperatures are low, and back to automatic when the load and temperature increases.  
 
-Unlike running from cron, this can sample the temperatures in second intervals, which can result in faster response time when the temperature rises.  
+Unlike running from cron, this can sample the temperatures in intervals as low as a second, which can result in faster response time when the temperature rises.  
 
 I have no idea if this script will work properly on other generations of servers.  I know sometimes the IPMI values can change between different generations. 
 

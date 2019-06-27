@@ -1,0 +1,22 @@
+[Unit]
+Description=iDrac Fan Daemon
+After=network.target
+StartLimitBurst=5
+StartLimitIntervalSec=10
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+# Run as a user, if using this tool over the network, there's no reason to run as root
+# User=
+
+
+# Defaults to /etc/idrac_fan_daemon.conf
+ExecStart=/usr/local/bin/idrac_fan_daemon 
+# or Specify a config file
+#ExecStart=/usr/local/bin/idrac_fan_daemon -c /usr/local/etc/idrac_fan_daemon.conf
+
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,193 @@
+#! /usr/bin/env php
+<?php
+    declare(ticks = 1);
+
+    { /* Main */
+        ## Provide configurable conf location
+        $config_file = '/etc/idrac_fan_daemon.conf';
+        $opts = getopt("c:");
+
+        if (count($opts) > 0 && $opts['c'] != null) {
+            $config_file = $opts['c'];
+        }
+
+        if (!file_exists($config_file)) {
+            echo "You must provide a config file (path: {$config_file})\n";
+            exit(1);
+        } else {
+            $c = new \config($config_file);
+        }
+
+        if (!$c->valid) {
+            echo "Invalid config\n";
+            exit(1);
+        }
+
+        /* PHP likes to leak memory.  Die after a while and let systemd restart it */
+        $end_ts = time() + 86400;
+        while ($end_ts > time()) {
+
+            $sleep_time = $c->interval;
+            exec("{$c->ipmitool} sdr",$lines);
+
+            $exception = false;
+
+            foreach ($lines as $line) {
+                $arr = array_map('trim',explode("|",$line));
+
+                if (in_array($arr[0], $c->cpus)) {
+                    if (str_replace(" degrees C","",$arr[1]) >= $c->cpu_limit) {
+                        $exception = true;
+                        $new_temp = str_replace(" degrees C","",$arr[1]);
+                        print ("CPU Temperature ({$arr[1]}) ({$new_temp}) exceeded limit of ({$c->cpu_limit}), restoring automatic fan control\n");
+                        break;
+                    }
+                }
+                if (in_array($arr[0], $c->ambients)) {
+                    if (str_replace(" degrees C","",$arr[1]) >= $c->ambient_limit) {
+                        $exception = true;
+                        print ("Ambient Temperature ({$arr[1]}) exceeded limit of ({$c->ambient_limit}), restoring automatic fan control\n");
+                        break;
+                    }
+                }
+            }
+            unset($lines);
+
+            if ($exception) {
+                $c->disableManual();
+                # Once automatic fan control has been restored, wait a little bit for things to settle down
+                $sleep_time = 60;
+            } else {
+                $c->enableManual();
+            }
+
+            sleep($sleep_time);
+        }
+    } /* main end */
+
+
+
+    class config {
+
+        public $valid = false;
+        public $state = "noset";
+
+        const CMD_MANUAL_ON = "raw 0x30 0x30 0x01 0x00";
+        const CMD_MANUAL_OFF = "raw 0x30 0x30 0x01 0x01";
+        const CMD_SET_FAN_SPEED = "raw 0x30 0x30 0x02 0xff ";
+
+        public function printFanSpeeds () {
+            exec("{$this->ipmitool} sdr",$lines);
+
+            foreach ($lines as $line) {
+                $arr = array_map('trim',explode("|",$line));
+                if (in_array($arr[0], $this->fans)) {
+                    $fans[$arr[0]] = $arr[1];
+                }
+            }
+            print_r(implode("      ",array_keys($fans)));
+            print("\n");
+            print_r(implode("    ",$fans));
+            print("\n");
+        }
+
+        public function disableManual() {
+            if (in_array($this->state,['noset','manual'])) {
+                print ("Setting automatic fan control\n");
+                if ($this->log_fan_speeds) {
+                    print ("Original fan speeds: \n");
+                    $this->printFanSpeeds();
+                }
+                exec("{$this->ipmitool} " . self::CMD_MANUAL_OFF);
+                $this->state = "auto";
+                sleep(9);
+                if ($this->log_fan_speeds) {
+                    print ("New fan speeds: \n");
+                    $this->printFanSpeeds();
+                }
+            }
+
+        }
+
+        public function enableManual() {
+            if (in_array($this->state,['noset','auto'])) {
+                print ("Setting manual fan control and speed to {$this->fan_speed}%\n");
+                if ($this->log_fan_speeds) {
+                    print ("Original fan speeds: \n");
+                    $this->printFanSpeeds();
+                }
+                exec("{$this->ipmitool} " . self::CMD_MANUAL_ON);
+                exec("{$this->ipmitool} " . self::CMD_SET_FAN_SPEED . $this->fan_speed_hex);
+                $this->state = 'manual';
+                sleep(9);
+                if ($this->log_fan_speeds) {
+                    print ("New fan speeds: \n");
+                    $this->printFanSpeeds();
+                }
+            }
+        }
+
+
+        private function validate ($params) {
+            if (!isset($params['IPMITOOL_PATH'])) {
+                print("You must provide a valid path to ipmitool (IPMITOOL_PATH='/bin/ipmitool')\n");
+                return false;
+            } else if (!file_exists($params['IPMITOOL_PATH'])) {
+                print("You must provide a valid path to ipmitool (IPMITOOL_PATH='/bin/ipmitool')\n");
+                return false;
+            }
+
+            if (isset($params['IPMITOOL_EXTRA'])) {
+
+            }
+
+            if (!is_numeric($params['FAN_SPEED'])) {
+                print ("You must provide a FAN_SPEED\n");
+                return false;
+            }
+            if (!is_numeric($params['AMBIENT_LIMIT'])) {
+                print ("You must provide a AMBIENT_LIMIT temperature\n");
+                return false;
+            }
+            if (!is_numeric($params['CPU_LIMIT'])) {
+                print ("You must provide a CPU_LIMIT temperature\n");
+                return false;
+            }
+            $this->ipmitool = $params['IPMITOOL_PATH'];
+            if (isset($params['IPMITOOL_EXTRA'])) {
+                $this->ipmitool .= " {$params['IPMITOOL_EXTRA']} ";
+            }
+            $this->fan_speed = preg_replace('/[^0-9]/', '', $params['FAN_SPEED']);
+            $this->fan_speed_hex = "0x".base_convert($this->fan_speed,10,16);
+            $this->ambient_limit = $params['AMBIENT_LIMIT'];
+            $this->cpu_limit = $params['CPU_LIMIT'];
+            if (isset($params['FANS'])) {
+                $this->fans = array_map('trim',explode(",",$params['FANS']));
+            }
+            $this->cpus = array_map('trim',explode(",",$params['CPUS']));
+            $this->ambients = array_map('trim',explode(",",$params['AMBIENT']));
+            $this->interval = isset($params['INTERVAL']) ? $params['INTERVAL']:5;
+            $this->log_fan_speeds = false;
+            if (isset($this->fans) && isset($params['LOG_FAN_SPEEDS']) && $params['LOG_FAN_SPEEDS'] == 1) {
+                $this->log_fan_speeds = true;
+            }
+
+            $this->valid = true;
+            $this->hash = sha1(serialize($this));
+            return true;
+
+        }
+
+        public function sigHandler($sig) {
+            //Since we are only handling two signals, just try and clean up;
+            echo "Shutting down and restoring automatic fan control\n";
+            $this->disableManual();
+            exit;
+        }
+
+        public function __construct($config_file) {
+            $this->validate(parse_ini_file($config_file,true));
+            pcntl_signal(SIGTERM, [$this,"sigHandler"]);
+            pcntl_signal(SIGHUP,  [$this,"sigHandler"]);
+        }
+    }

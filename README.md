@@ -8,7 +8,7 @@ Unlike running from cron, this can sample the temperatures in second intervals, 
 
 I have no idea if this script will work properly on other generations of servers.  I know sometimes the IPMI values can change between different generations. 
 
-###Prequisites
+### Prequisites
 
 * PHP7+, specifically the CLI binary.  Yes, everybody hates PHP, but I could throw something together with it in a few hours
 * ipmitool
@@ -34,7 +34,7 @@ ipmitool:
 
 ***
 
-###Configuration
+### Configuration
 
 
 Put the script in /usr/local/bin (or wherever), and the conf file in /etc.  Both are configurable via the systemd unit and conf file. 

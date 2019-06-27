@@ -37,7 +37,7 @@ ipmitool:
 ### Configuration
 
 
-Put the script in /usr/local/bin (or wherever), and the conf file in /etc.  Both are configurable via the systemd unit and conf file. 
+Put the script in /usr/local/bin (or wherever) and make it execute, and put the conf file in /etc.  Both locations are configurable via the systemd unit and conf file. 
 
 Look in the conf file for options and what needs to be configured.  
 

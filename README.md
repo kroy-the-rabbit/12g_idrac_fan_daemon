@@ -2,7 +2,7 @@
 
 ***
 
-This is a daemon to set the fans in a 12G server to a pre-set manual speed when the CPU and ambient temperatures are low, and back to automatic when the load and temperature increases.  
+This is a daemon to set the fans in a 12G server to a manual speed when the CPU and ambient temperatures are low, and back to automatic when the load and temperature increases.  
 
 Unlike running from cron, this can sample the temperatures in second intervals, which can result in faster response time when the temperature rises.  
 
